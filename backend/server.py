@@ -1,8 +1,7 @@
 from flask import Flask, request, jsonify
-from transformers import PegasusTokenizer, PegasusForConditionalGeneration
-import os
 from flask_cors import CORS
-import re
+from transformers import PegasusTokenizer, PegasusForConditionalGeneration
+import os, re, json, pathlib, pdfplumber, docx2txt
 
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
@@ -13,7 +12,8 @@ def length_parameters(summary_length_choice):
     summary_length_factors = {
         "short": (0.15, 0.2),
         "medium": (0.3, 0.4),
-        "long": (0.6, 0.7)
+        "long": (0.6, 0.7),
+        "tweet": (0.27, 0.27)
     }
     
     return summary_length_factors[summary_length_choice]
@@ -71,20 +71,45 @@ def summarize():
         complete_summary = " ".join(complete_sentences)
         stitch.append(complete_summary)
 
-    #print(" ".join(stitch))
-    return jsonify({'summary':summary})
+    return jsonify({'summary':" ".join(stitch)})
 
-# def summarize():
-#   request_data = request.get_json()
-#   input_text = request_data['text']
-#   max_summary_length = request_data['length']
-    
-#   inputs = tokenizer(input_text, return_tensors='pt')
+@app.route('/file', methods=['POST'])
+def upload():
+    file = request.files['file']
+    filename = file.filename
+    file_ext = pathlib.Path(filename).suffix
+    extracted_text = ''
 
-#   summary_ids = model.generate(inputs['input_ids'], max_length=max_summary_length, min_length=56, early_stopping=True)
-#   summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    match file_ext:
+        case '.pdf':
+            with pdfplumber.open(file) as pdf:
+                for page in pdf.pages:
+                    extracted_text += page.extract_text()
+        case '.docx' | '.doc':
+            extracted_text = docx2txt.process(file)
+        case '.txt':
+            extracted_text = file.read().decode('utf-8')
 
-#   return jsonify({'summary': summary})
+    length = request.form['length']
+
+    input_list = split_into_sentences(extracted_text.replace('\n',''))
+    stitch = []
+
+    length_factors = length_parameters(length)
+
+    for grouped_sentence, grouped_sentence_length in input_list:
+        inputs = tokenizer(grouped_sentence, return_tensors='pt')
+
+        summary_ids = model.generate(inputs['input_ids'], max_length=int(length_factors[1]*grouped_sentence_length), min_length=int(length_factors[0]*grouped_sentence_length), no_repeat_ngram_size=4)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        complete_sentences = re.findall('[A-Z][^\.!?]*[\.!?]', summary)
+        complete_summary = " ".join(complete_sentences)
+        stitch.append(complete_summary)
+
+    final_summary = " ".join(stitch)
+
+    response_data = {'summary':final_summary}
+    return json.dumps(response_data)
 
 if __name__ == "__main__":
   app.run()
