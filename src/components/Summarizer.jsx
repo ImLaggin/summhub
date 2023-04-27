@@ -4,8 +4,7 @@ const Summarizer = () => {
 
   const [text, setText] = useState("");
   const [summary, setSummary] = useState("");
-  const [length, setLength] = useState("100") 
-  //const [disabled, setDisabled] = useState(true)
+  const [length, setLength] = useState("short") 
 
   const handleTextChange = (event) => {
     setText(event.target.value);
@@ -14,30 +13,22 @@ const Summarizer = () => {
   const handleSummarize = async () => {
     var myHeaders = new Headers();
     myHeaders.append("Content-Type", "application/json");
-    var raw = JSON.stringify({
+    const raw = JSON.stringify({
       "text": text,
       "length": length
     });
-    var requestOptions = {
+
+    const requestOptions = {
       method: 'POST',
       headers: myHeaders,
       body: raw,
       redirect: 'follow'
     };
-    // const requestOptions = {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ text: text }),
-    // };
+
     fetch("http://localhost:5000", requestOptions)
     .then(response => response.text())
     .then(result => setSummary(JSON.parse(result)['summary']))
     .catch(error => console.log('error', error));
-    // const response = await fetch("http://localhost:5000/", requestOptions);
-    // const data = await response.text();
-    // setSummary(data.summary);
-    // console.log(summary)
-    console.log(length)
   };
 
   const handleLengthChange = (e) => {
@@ -57,10 +48,10 @@ const Summarizer = () => {
                 <span className="label-text">Summary Length</span>
               </label>
               <select className="select select-bordered" onChange={handleLengthChange}>
-                <option defaultChecked value="100">Short</option>
-                <option value="200">Medium</option>
-                <option value="300">Long</option>
-                <option value="135">Tweet</option>
+                <option defaultChecked value="short">Short</option>
+                <option value="medium">Medium</option>
+                <option value="long">Long</option>
+                <option value="tweet">Tweet</option>
               </select>
             </div>
           </div>
