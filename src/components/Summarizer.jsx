@@ -1,47 +1,65 @@
 import React, { useState } from 'react'
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 const Summarizer = () => {
 
   const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
   const [summary, setSummary] = useState("");
-  const [length, setLength] = useState("100") 
-  //const [disabled, setDisabled] = useState(true)
+  const [length, setLength] = useState("short");
+  const [disabled, setDisabled] = useState(true);
 
   const handleTextChange = (event) => {
     setText(event.target.value);
   };
 
   const handleSummarize = async () => {
-    var myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    var raw = JSON.stringify({
-      "text": text,
-      "length": length
-    });
-    var requestOptions = {
-      method: 'POST',
-      headers: myHeaders,
-      body: raw,
-      redirect: 'follow'
-    };
-    // const requestOptions = {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ text: text }),
-    // };
-    fetch("http://localhost:5000", requestOptions)
-    .then(response => response.text())
-    .then(result => setSummary(JSON.parse(result)['summary']))
-    .catch(error => console.log('error', error));
-    // const response = await fetch("http://localhost:5000/", requestOptions);
-    // const data = await response.text();
-    // setSummary(data.summary);
-    // console.log(summary)
-    console.log(length)
+    if (text !== '') {
+      var myHeaders = new Headers();
+      myHeaders.append("Content-Type", "application/json");
+      const raw = JSON.stringify({
+        "text": text,
+        "length": length
+      });
+
+      const requestOptions = {
+        method: 'POST',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+      };
+
+      fetch("http://localhost:5000", requestOptions)
+      .then(response => response.text())
+      .then(result => {
+        setSummary(JSON.parse(result)['summary']);
+        setDisabled(false);
+      })
+      .catch(error => console.log('error', error));
+    } else {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('length', length);
+
+      fetch('http://localhost:5000/file', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        setSummary(data.summary);
+        setDisabled(false)
+      })
+      .catch(error => console.error(error));
+    }
   };
 
   const handleLengthChange = (e) => {
     setLength(e.target.value)
+  }
+
+  const handleFileUpload = (e) => {
+    setFile(e.target.files[0])
   }
 
   return (
@@ -56,18 +74,18 @@ const Summarizer = () => {
               <label className="label">
                 <span className="label-text">Summary Length</span>
               </label>
-              <select className="select select-bordered" onChange={handleLengthChange}>
-                <option defaultChecked value="100">Short</option>
-                <option value="200">Medium</option>
-                <option value="300">Long</option>
-                <option value="135">Tweet</option>
-              </select>
+              <select className="select select-bordered border-accent" onChange={handleLengthChange}>
+                  <option defaultChecked value="short">Short</option>
+                  <option value="medium">Medium</option>
+                  <option value="long">Long</option>
+                  <option value="tweet">Tweet</option>
+                </select>
             </div>
           </div>
-          <textarea placeholder="Enter Input Text" className="bg-base-200 resize-none textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 mb-5 shadow-md shadow-accent" onChange={handleTextChange}></textarea>
+          <textarea placeholder="Enter Input Text" className="bg-base-200 resize-none textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 mb-5 shadow-md shadow-accent !border-accent" disabled={file} onChange={handleTextChange}></textarea>
           <div className="flex justify-between">
-            <input type="file" className="file-input file-input-bordered w-full max-w-xs" />
-            <button className="btn btn-accent" onClick={handleSummarize}>Summarize</button>
+            <input type="file" className="file-input file-input-bordered file-input-accent w-full max-w-xs" onChange={handleFileUpload} disabled={text} accept=".pdf,.doc,.docx,.txt"/>
+            <button className="btn btn-accent" onClick={handleSummarize} disabled={!text && !file}>Summarize</button>
           </div>
         </div>
         <div className="divider divider-horizontal"></div>
@@ -75,8 +93,10 @@ const Summarizer = () => {
           <label className="label mb-10">
             <span className="label-text text-lg btn btn-active normal-case no-animation pointer-events-none">Generated Summary</span>
           </label>
-          <div className="bg-base-200 textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 resize-none shadow-md shadow-accent mb-5 !border-accent overflow-y-auto" contentEditable>{summary}</div>
-          <button className="btn btn-block btn-accent">Copy to Clipboard</button>
+          <div className={"bg-base-200 textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 resize-none shadow-md shadow-accent mb-5 !border-accent overflow-y-auto"} contentEditable={!disabled} disabled={disabled}>{summary}</div>
+          <CopyToClipboard text={summary}>
+            <button className="btn btn-block btn-accent" disabled={disabled}>Copy to Clipboard</button>
+          </CopyToClipboard>
         </div>
       </div>
     </div>

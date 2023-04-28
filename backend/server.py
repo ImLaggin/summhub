@@ -1,12 +1,47 @@
 from flask import Flask, request, jsonify
-from transformers import PegasusTokenizer, PegasusForConditionalGeneration
-import os
 from flask_cors import CORS
+from transformers import PegasusTokenizer, PegasusForConditionalGeneration
+import os, re, json, pathlib, pdfplumber, docx2txt
 
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
 app = Flask(__name__, static_folder='../public')
 CORS(app, origins='http://localhost:5173')
+
+def length_parameters(summary_length_choice):
+    summary_length_factors = {
+        "short": (0.15, 0.2),
+        "medium": (0.3, 0.4),
+        "long": (0.6, 0.7),
+        "tweet": (0.27, 0.27)
+    }
+    
+    return summary_length_factors[summary_length_choice]
+
+def split_into_sentences(text):
+    sentences = re.findall('[A-Z][^\.!?]*[\.!?]', text)
+    sentence_tokens = []
+
+    for sentence in sentences:
+        tokenized_sentence = tokenizer(sentence)
+        sentence_tokens.append(len(tokenized_sentence['input_ids']))
+
+    max_token_length = 512
+    current_token_length = sentence_tokens[0]
+    current_sentence = sentences[0]
+    result = []
+    for sentence_token, sentence in zip(sentence_tokens[1:], sentences[1:]):
+        if current_token_length + sentence_token < max_token_length:
+            current_token_length += sentence_token
+            current_sentence += ' ' + sentence
+        else:
+            result.append((current_sentence, len(tokenizer(current_sentence)['input_ids'])))
+            current_token_length = sentence_token
+            current_sentence = sentence
+    
+    result.append((current_sentence, len(tokenizer(current_sentence)['input_ids'])))
+
+    return result
 
 @app.route('/')
 def index():
@@ -18,39 +53,65 @@ model = PegasusForConditionalGeneration.from_pretrained(model_name)
 
 @app.route('/', methods=['POST'])
 def summarize():
-  request_data = request.get_json()
-  input_text = request_data['text']
-  max_summary_length = int(request_data['length'])
-    
-  inputs = tokenizer(input_text, return_tensors='pt')
+    request_data = request.get_json()
+    input_text = request_data['text']
+    max_summary_length = request_data['length']
+  
+    input_list = split_into_sentences(input_text.replace('\n',''))
+    stitch = []
 
-  # Generate summary
-  summary_ids = model.generate(inputs['input_ids'], max_length=max_summary_length, min_length=56, early_stopping=True)
-  summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    length_factors = length_parameters(max_summary_length)
 
-  # Return the summary as a JSON response
-  return jsonify({'summary': summary})
+    for grouped_sentence, grouped_sentence_length in input_list:
+        inputs = tokenizer(grouped_sentence, return_tensors='pt')
+
+        summary_ids = model.generate(inputs['input_ids'], max_length=int(length_factors[1]*grouped_sentence_length), min_length=int(length_factors[0]*grouped_sentence_length), no_repeat_ngram_size=4)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        complete_sentences = re.findall('[A-Z][^\.!?]*[\.!?]', summary)
+        complete_summary = " ".join(complete_sentences)
+        stitch.append(complete_summary)
+
+    return jsonify({'summary':" ".join(stitch)})
+
+@app.route('/file', methods=['POST'])
+def upload():
+    file = request.files['file']
+    filename = file.filename
+    file_ext = pathlib.Path(filename).suffix
+    extracted_text = ''
+
+    match file_ext:
+        case '.pdf':
+            with pdfplumber.open(file) as pdf:
+                for page in pdf.pages:
+                    extracted_text += page.extract_text()
+        case '.docx' | '.doc':
+            extracted_text = docx2txt.process(file)
+        case '.txt':
+            extracted_text = file.read().decode('utf-8')
+
+    length = request.form['length']
+
+    input_list = split_into_sentences(extracted_text.replace('\n',''))
+    stitch = []
+
+    length_factors = length_parameters(length)
+
+    length_divider = len(input_list) if length=='tweet' else 1
+
+    for grouped_sentence, grouped_sentence_length in input_list:
+        inputs = tokenizer(grouped_sentence, return_tensors='pt')
+
+        summary_ids = model.generate(inputs['input_ids'], max_length=int((length_factors[1]*grouped_sentence_length)/length_divider), min_length=int((length_factors[0]*grouped_sentence_length)/length_divider), no_repeat_ngram_size=4)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        complete_sentences = re.findall('[A-Z][^\.!?]*[\.!?]', summary)
+        complete_summary = " ".join(complete_sentences)
+        stitch.append(complete_summary)
+
+    final_summary = " ".join(stitch)
+
+    response_data = {'summary':final_summary}
+    return json.dumps(response_data)
 
 if __name__ == "__main__":
   app.run()
-
-
-# from transformers import PegasusTokenizer, PegasusForConditionalGeneration, pipeline # change model if required: ModelClass...
-
-# model_name = "google/pegasus-xsum"
-# pegasus_tokenizer = PegasusTokenizer.from_pretrained(model_name)
-# pegasus_model = PegasusForConditionalGeneration.from_pretrained(model_name)
-
-# input_text = '''Deep learning (also known as deep structured learning) is part of a broader family of machine learning methods based on artificial neural networks with representation learning. Learning can be supervised, semi-supervised or unsupervised. Deep-learning architectures such as deep neural networks, deep belief networks, deep reinforcement learning, recurrent neural networks and convolutional neural networks have been applied to fields including computer vision, speech recognition, natural language processing, machine translation, bioinformatics, drug design, medical image analysis, material inspection and board game programs, where they have produced results comparable to and in some cases surpassing human expert performance. Artificial neural networks (ANNs) were inspired by information processing and distributed communication nodes in biological systems. ANNs have various differences from biological brains. Specifically, neural networks tend to be static and symbolic, while the biological brain of most living organisms is dynamic (plastic) and analogue. The adjective "deep" in deep learning refers  to the use of multiple layers in the network. Early work showed that a linear perceptron cannot be a universal classifier, but that a network with a nonpolynomial activation function with one hidden layer of unbounded width can. Deep learning is a modern variation which is concerned with an unbounded number of layers of bounded size, which permits practical application and optimized implementation, while retaining theoretical universality under mild conditions. In deep learning the layers are also permitted to be heterogeneous and to deviate widely from biologically informed connectionist models, for the sake of efficiency, trainability and understandability, whence the structured part.'''
-
-# tokens = pegasus_tokenizer(input_text, return_tensors="pt") # last argument returns TensorType - TensorFlow variable type, pt for PyTorch
-# encoded_summarized_text = pegasus_model.generate(**tokens) # ** to unpack the dictionary
-# decoded_summarized_text = pegasus_tokenizer.decode(encoded_summarized_text[0])
-
-# print("One-line summary:\n", decoded_summarized_text, end="\n\n")
-
-# summarizer = pipeline(task="summarization",
-#                       model=pegasus_model, tokenizer=pegasus_tokenizer)
-# summary = summarizer(input_text, min_length=30, max_length=60)
-
-# print("Customized summary:\n", summary[0]['summary_text'], end="\n")
