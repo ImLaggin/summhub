@@ -14,7 +14,7 @@ const Summarizer = () => {
   };
 
   const handleSummarize = async () => {
-    if (text != '') {
+    if (text !== '') {
       var myHeaders = new Headers();
       myHeaders.append("Content-Type", "application/json");
       const raw = JSON.stringify({
@@ -33,7 +33,7 @@ const Summarizer = () => {
       .then(response => response.text())
       .then(result => {
         setSummary(JSON.parse(result)['summary']);
-        setDisabled(!disabled);
+        setDisabled(false);
       })
       .catch(error => console.log('error', error));
     } else {
@@ -48,7 +48,7 @@ const Summarizer = () => {
       .then(response => response.json())
       .then(data => {
         setSummary(data.summary);
-        setDisabled(!disabled)
+        setDisabled(false)
       })
       .catch(error => console.error(error));
     }

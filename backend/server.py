@@ -97,10 +97,12 @@ def upload():
 
     length_factors = length_parameters(length)
 
+    length_divider = len(input_list) if length=='tweet' else 1
+
     for grouped_sentence, grouped_sentence_length in input_list:
         inputs = tokenizer(grouped_sentence, return_tensors='pt')
 
-        summary_ids = model.generate(inputs['input_ids'], max_length=int(length_factors[1]*grouped_sentence_length), min_length=int(length_factors[0]*grouped_sentence_length), no_repeat_ngram_size=4)
+        summary_ids = model.generate(inputs['input_ids'], max_length=int((length_factors[1]*grouped_sentence_length)/length_divider), min_length=int((length_factors[0]*grouped_sentence_length)/length_divider), no_repeat_ngram_size=4)
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         complete_sentences = re.findall('[A-Z][^\.!?]*[\.!?]', summary)
         complete_summary = " ".join(complete_sentences)
