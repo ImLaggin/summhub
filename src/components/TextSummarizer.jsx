@@ -13,6 +13,14 @@ const Summarizer = () => {
     setText(event.target.value);
   };
 
+  const handleLengthChange = (e) => {
+    setLength(e.target.value)
+  }
+
+  const handleFileUpload = (e) => {
+    setFile(e.target.files[0])
+  }
+
   const handleSummarize = async () => {
     if (text !== '') {
       var myHeaders = new Headers();
@@ -54,14 +62,6 @@ const Summarizer = () => {
     }
   };
 
-  const handleLengthChange = (e) => {
-    setLength(e.target.value)
-  }
-
-  const handleFileUpload = (e) => {
-    setFile(e.target.files[0])
-  }
-
   return (
     <div className='mx-10 my-10'>
       <div className="flex justify-around">
@@ -93,7 +93,7 @@ const Summarizer = () => {
           <label className="label mb-10">
             <span className="label-text text-lg btn btn-active normal-case no-animation pointer-events-none">Generated Summary</span>
           </label>
-          <div className={"bg-base-200 textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 resize-none shadow-md shadow-accent mb-5 !border-accent overflow-y-auto"} contentEditable={!disabled} disabled={disabled}>{summary}</div>
+          <div className="bg-base-200 textarea textarea-bordered textarea-accent textarea-lg w-[512px] h-80 resize-none shadow-md shadow-accent mb-5 !border-accent overflow-y-auto" contentEditable={!disabled} disabled={disabled}>{summary}</div>
           <CopyToClipboard text={summary}>
             <button className="btn btn-block btn-accent" disabled={disabled}>Copy to Clipboard</button>
           </CopyToClipboard>
