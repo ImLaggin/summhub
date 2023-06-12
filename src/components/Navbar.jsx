@@ -12,7 +12,7 @@ const Navbar = () => {
       <ul className="menu menu-horizontal mr-16">
         <NavLink to='/' className={({isActive}) => (isActive ? activeButton : normalButton)}><button >Text Summarizer</button></NavLink>
         <NavLink to='/audio' className={({isActive}) => (isActive ? activeButton : normalButton)}><button >Audio Summarizer</button></NavLink>
-        <NavLink><button className='btn btn-disabled btn-ghost normal-case mr-2'>Video Summarizer</button></NavLink>
+        {/* <NavLink><button className='btn btn-disabled btn-ghost normal-case mr-2'>Video Summarizer</button></NavLink> */}
       </ul>
     </nav>    
   )
