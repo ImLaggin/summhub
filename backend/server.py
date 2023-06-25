@@ -7,7 +7,7 @@ import os, re, json, pathlib, pdfplumber, docx2txt, requests, cloudinary, cloudi
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
 app = Flask(__name__, static_folder='../public')
-CORS(app, origins='http://localhost:5173')
+CORS(app)
 
 model_name = "google/pegasus-xsum"
 tokenizer = PegasusTokenizer.from_pretrained(model_name)
